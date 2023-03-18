@@ -1,6 +1,5 @@
-mod api;
-
-use api::{jira::JiraClient, bitbucket::{BitbucketClient, BitbucketPullRequest, BitbucketPullRequestIssue}};
+use deployment_changelog::changelog::{Changelog, get_changelog};
+use deployment_changelog::api::{jira::JiraClient, bitbucket::{BitbucketClient, BitbucketPullRequest, BitbucketPullRequestIssue}};
 use clap::Parser;
 
 use git2::{Error, Oid, Repository, Revwalk, Object};
@@ -67,6 +66,17 @@ async fn main() {
     let jira_client = JiraClient::new(jira_url);
     let issue = jira_client.get_issue(issue_key).await;
     println!("Issue:\n{}\n", issue);
+
+    let changelog: Changelog = get_changelog(
+        &bitbucket_client,
+        &jira_client,
+        &args.project,
+        &args.repo,
+        &args.start_commit,
+        &args.end_commit
+    ).await;
+
+    println!("{}", changelog);
 }
 
 
