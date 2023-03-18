@@ -1,5 +1,6 @@
 use deployment_changelog::changelog::{Changelog, get_changelog};
 use deployment_changelog::api::{jira::JiraClient, bitbucket::{BitbucketClient, BitbucketPullRequest, BitbucketPullRequestIssue}};
+use anyhow::Result;
 use clap::Parser;
 
 use git2::{Error, Oid, Repository, Revwalk, Object};
@@ -15,8 +16,15 @@ struct Args {
 #[tokio::main]
 async fn main() {
     println!("Hello, world!");
-    let args = Args::parse();
 
+    let args = Args::parse();
+    match print_changelog(&args).await {
+        Ok(_) => (),
+        Err(error) => eprintln!("Error: {error}")
+    }
+}
+
+async fn print_changelog(args: &Args) -> Result<()> {
     // let repo = match Repository::open(".") {
     //     Ok(repository) => repository,
     //     Err(error) => panic!("Problem opening the current repository: {error}")
@@ -35,7 +43,7 @@ async fn main() {
 
     let bitbucket_url = "https://opensource.ncsa.illinois.edu/bitbucket/";
 
-    let bitbucket_client = BitbucketClient::new(bitbucket_url);
+    let bitbucket_client = BitbucketClient::new(bitbucket_url)?;
     let commit_diff = bitbucket_client.compare_commits(&args.project, &args.repo, &args.start_commit, &args.end_commit).await;
     println!("Commits:\n{}\n", commit_diff);
 
@@ -63,7 +71,7 @@ async fn main() {
 
     let jira_url = "https://issues.apache.org/jira/";
     let issue_key = "CASSANDRA-18339";
-    let jira_client = JiraClient::new(jira_url);
+    let jira_client = JiraClient::new(jira_url)?;
     let issue = jira_client.get_issue(issue_key).await;
     println!("Issue:\n{}\n", issue);
 
@@ -77,6 +85,7 @@ async fn main() {
     ).await;
 
     println!("{}", changelog);
+    Ok(())
 }
 
 

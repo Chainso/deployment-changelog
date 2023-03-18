@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use serde::{Serialize, Deserialize};
+use anyhow::Result;
 
 use super::api::RestClient;
 
@@ -103,10 +104,10 @@ pub struct JiraClient {
 }
 
 impl JiraClient {
-    pub fn new(base_url: &str) -> Self {
-        Self {
-            client: RestClient::new(base_url)
-        }
+    pub fn new(base_url: &str) -> Result<Self> {
+        Ok(Self {
+            client: RestClient::new(base_url)?
+        })
     }
 
     pub async fn get_issue(&self, issue_key: &str) -> JiraIssue {

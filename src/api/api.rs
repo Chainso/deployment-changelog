@@ -1,7 +1,8 @@
 use std::{time::Duration, collections::HashMap};
 
-use reqwest::{Client, header::{HeaderMap, CONTENT_TYPE, HeaderValue, ACCEPT}, Error, Url, ClientBuilder, Request};
+use reqwest::{Client, header::{HeaderMap, CONTENT_TYPE, HeaderValue, ACCEPT}, Error, Url, Request};
 use serde::de::DeserializeOwned;
+use anyhow::{Context, Result};
 
 static APPLICATION_JSON: &str = "application/json";
 
@@ -11,29 +12,24 @@ pub struct RestClient {
 }
 
 impl RestClient {
-    pub fn new(base_url: &str) -> Self {
+    pub fn new(base_url: &str) -> Result<Self> {
         let mut headers: HeaderMap = HeaderMap::with_capacity(2);
         headers.insert(CONTENT_TYPE, HeaderValue::from_static(APPLICATION_JSON));
         headers.insert(ACCEPT, HeaderValue::from_static(APPLICATION_JSON));
 
-        let url: Url = match Url::parse(base_url) {
-            Ok(parsed_url) => parsed_url,
-            Err(error) => panic!("Error parsing base URL {base_url}: {error}")
-        };
+        let url = Url::parse(base_url)
+            .with_context(|| format!("Error parsing base URL {base_url}"))?;
 
-        let client_builder: ClientBuilder = Client::builder()
+        let client = Client::builder()
             .default_headers(headers)
-            .timeout(Duration::from_secs(5));
+            .timeout(Duration::from_secs(5))
+            .build()
+            .with_context(|| format!("Error creating REST client with base URL {base_url}"))?;
 
-        let client: Client = match client_builder.build() {
-            Ok(cli) => cli,
-            Err(error) => panic!("Error creating REST client with base URL {base_url}: {error}")
-        };
-
-        Self {
+        Ok(Self {
             base_url: url,
             client
-        }
+        })
     }
 
     pub async fn get<R: DeserializeOwned>(&self, url: &str, query: Option<HashMap<&str, &str>>) -> R {

@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
+use anyhow::Result;
 
 use super::api::RestClient;
 
@@ -131,10 +132,10 @@ pub struct BitbucketClient {
 }
 
 impl BitbucketClient {
-    pub fn new(base_url: &str) -> Self {
-        Self {
-            client: RestClient::new(base_url)
-        }
+    pub fn new(base_url: &str) -> Result<Self> {
+        Ok(Self {
+            client: RestClient::new(base_url)?
+        })
     }
 
     pub async fn compare_commits(&self, project: &str, repo: &str, start_commit: &str, end_commit: &str) -> BitbucketPage<BitbucketCommit> {
