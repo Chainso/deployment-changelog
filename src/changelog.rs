@@ -13,6 +13,7 @@ pub enum CommitSpecifier {
 
 #[derive(Parser, Debug)]
 pub struct SpinnakerArgs {
+    #[clap(long, short = 's', about, long_help = "The URL to your Spinnaker server", env = "SPINNAKER_URL")]
     url: String,
     env: String
 }

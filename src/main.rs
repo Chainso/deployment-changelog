@@ -11,6 +11,12 @@ struct Args {
     #[clap(subcommand)]
     commit_specifier: CommitSpecifier,
 
+    #[clap(long, short = 'b', about, long_help = "The URL to your Bitbucket server", env = "BITBUCKET_URL")]
+    bitbucket_url: String,
+
+    #[clap(long, short = 'j', about, long_help = "The URL to your JIRA server", env = "JIRA_URL")]
+    jira_url: String,
+
     project: String,
     repo: String,
 
@@ -48,8 +54,9 @@ async fn print_changelog(args: &Args) -> Result<()> {
     // }
     log::info!("Getting changelog for args: {:?}", args);
 
-    let bitbucket_url = "https://opensource.ncsa.illinois.edu/bitbucket/";
-    let bitbucket_client = BitbucketClient::new(bitbucket_url)?;
+    let bitbucket_client = BitbucketClient::new(&args.bitbucket_url)?;
+    let jira_client = JiraClient::new(&args.jira_url)?;
+
     //
     // let commit_diff = bitbucket_client.compare_commits(&args.project, &args.repo, &args.commit_specifier.start_commit, &args.commit_specifier.end_commit).await;
     // println!("Commits:\n{}\n", commit_diff);
@@ -76,8 +83,6 @@ async fn print_changelog(args: &Args) -> Result<()> {
     //
     // println!("Issues for commits:\n{:?}\n", issues);
     //
-    let jira_url = "https://issues.apache.org/jira/";
-    let jira_client = JiraClient::new(jira_url)?;
     //
     // let issue_key = "CASSANDRA-18339";
     // let issue = jira_client.get_issue(issue_key).await;
