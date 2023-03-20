@@ -104,7 +104,7 @@ impl<T: DeserializeOwned + Send> Paginated<T> for BitbucketPaginated<'_, T> {
 }
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct BitbucketCommit {
     pub id: String,
