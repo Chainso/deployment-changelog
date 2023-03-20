@@ -6,6 +6,23 @@ use anyhow::{Context, Result};
 
 static APPLICATION_JSON: &str = "application/json";
 
+#[async_trait::async_trait]
+pub trait Paginated<T: Send> {
+    async fn next(&mut self) -> Result<Vec<T>>;
+    fn is_last(&self) -> bool;
+
+    async fn all(&mut self) -> Result<Vec<T>> {
+        let mut all_results = Vec::new();
+
+        while !self.is_last() {
+            all_results.extend(self.next().await?);
+        }
+
+        Ok(all_results)
+    }
+}
+
+#[derive(Debug)]
 pub struct RestClient {
     pub base_url: Url,
     pub client: Client,
@@ -32,7 +49,7 @@ impl RestClient {
         })
     }
 
-    pub async fn get<R: DeserializeOwned>(&self, url: &str, query: Option<HashMap<&str, &str>>) -> R {
+    pub async fn get<R: DeserializeOwned>(&self, url: &str, query: Option<&HashMap<String, String>>) -> Result<R> {
         let method = "GET";
         let request_url = self.build_url(url, method);
 
@@ -44,18 +61,14 @@ impl RestClient {
         self.execute(request).await
     }
 
-    pub async fn execute<R: DeserializeOwned>(&self, request: Request) -> R {
-        println!("Making request to {}", request.url());
+    pub async fn execute<R: DeserializeOwned>(&self, request: Request) -> Result<R> {
+        log::info!("Making request to {}", request.url());
 
-        let response = match self.client.execute(request).await {
-            Ok(res) => res,
-            Err(error) => panic!("Error executing request: {error}")
-        };
+        let response = self.client.execute(request).await
+            .with_context(|| "Error executing request: {request}")?;
 
-        match response.json::<R>().await {
-            Ok(deserialized) => deserialized,
-            Err(error) => panic!("Error deserializing response: {error}")
-        }
+        return response.json::<R>().await
+            .with_context(|| "Error deserializing response");
     }
 
     pub fn build_url(&self, url: &str, method: &str) -> Url {

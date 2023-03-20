@@ -1,7 +1,27 @@
-use crate::api::{jira::{JiraIssue, JiraClient}, bitbucket::{BitbucketCommit, BitbucketPullRequest, BitbucketPullRequestIssue, BitbucketClient}};
-use std::fmt::Display;
-use serde::{Deserialize, Serialize};
+use crate::api::{api::Paginated, jira::{JiraIssue, JiraClient}, bitbucket::{BitbucketCommit, BitbucketPullRequest, BitbucketPullRequestIssue, BitbucketClient, BitbucketPaginated}};
 
+use std::{fmt::Display, collections::HashSet};
+use clap::Parser;
+use serde::{Deserialize, Serialize};
+use anyhow::Result;
+
+#[derive(Parser, Debug)]
+pub enum CommitSpecifier {
+    Spinnaker(SpinnakerArgs),
+    CommitRange(CommitRange)
+}
+
+#[derive(Parser, Debug)]
+pub struct SpinnakerArgs {
+    url: String,
+    env: String
+}
+
+#[derive(Parser, Debug)]
+pub struct CommitRange {
+    start_commit: String,
+    end_commit: String
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -20,49 +40,95 @@ impl Display for Changelog {
     }
 }
 
-pub async fn get_changelog(
-    bitbucket_client: &BitbucketClient,
-    jira_client: &JiraClient,
-    project: &str,
-    repo: &str,
-    start_commit: &str,
-    end_commit: &str
-) -> Changelog {
-    let commits: Vec<BitbucketCommit> = bitbucket_client.compare_commits(
-        project,
-        repo,
-        start_commit,
-        end_commit
-    )
-        .await
-        .values;
+impl Changelog {
+    pub async fn new(
+        bitbucket_client: &BitbucketClient,
+        jira_client: &JiraClient,
+        project: &str,
+        repo: &str,
+        commit_specifier: &CommitSpecifier
+    ) -> Result<Changelog> {
+        match commit_specifier {
+            CommitSpecifier::Spinnaker(spinnaker_args) => unimplemented!(),
+            CommitSpecifier::CommitRange(commit_range) => Self::get_changelog_from_range(
+                bitbucket_client,
+                jira_client,
+                project,
+                repo,
+                commit_range
+            ).await
+        }
+    }
 
-    let pull_requests: Vec<BitbucketPullRequest> = futures::future::join_all(
-        commits.iter()
-            .map(|commit| bitbucket_client.get_pull_requests(project, repo, &commit.id))
-    )
-        .await
-        .into_iter()
-        .flat_map(|pull_request_page| pull_request_page.values)
-        .collect();
+    pub async fn get_changelog_from_spinnaker(
+        bitbucket_client: &BitbucketClient,
+        jira_client: &JiraClient,
+        project: &str,
+        repo: &str,
+        spinnaker_args: &SpinnakerArgs
+    ) -> Result<Changelog> {
+        unimplemented!()
+    }
 
-    let pull_request_issues: Vec<BitbucketPullRequestIssue> = futures::future::join_all(
-        pull_requests.iter()
-            .map(|pull_request| bitbucket_client.get_pull_request_issues(project, repo, pull_request.id))
-    )
-        .await
-        .into_iter()
-        .flatten()
-        .collect();
+    pub async fn get_changelog_from_range(
+        bitbucket_client: &BitbucketClient,
+        jira_client: &JiraClient,
+        project: &str,
+        repo: &str,
+        commit_range: &CommitRange
+    ) -> Result<Changelog> {
+        let commits: Vec<BitbucketCommit> = bitbucket_client.compare_commits(
+            project,
+            repo,
+            &commit_range.start_commit,
+            &commit_range.end_commit
+        )
+            .all()
+            .await?;
 
-    let issues = futures::future::join_all(
-        pull_request_issues.iter()
-            .map(|pull_request_issue| jira_client.get_issue(&pull_request_issue.key))
-    ).await;
+        let mut pull_request_pages: Vec<BitbucketPaginated<BitbucketPullRequest>> = commits.iter()
+                .map(|commit| bitbucket_client.get_pull_requests(project, repo, &commit.id))
+                .collect();
 
-    Changelog {
-        commits,
-        pull_requests,
-        issues
+        let pull_requests: Vec<BitbucketPullRequest> = futures::future::join_all(
+            pull_request_pages.iter_mut()
+                .map(|page| page.all())
+        )
+            .await
+            .into_iter()
+            .collect::<Result<Vec<Vec<BitbucketPullRequest>>>>()?
+            .into_iter()
+            .flatten()
+            .collect::<HashSet<BitbucketPullRequest>>()
+            .into_iter()
+            .collect();
+
+        let pull_request_issues: Vec<BitbucketPullRequestIssue> = futures::future::join_all(
+            pull_requests.iter()
+                .map(|pull_request| bitbucket_client.get_pull_request_issues(project, repo, pull_request.id))
+        )
+            .await
+            .into_iter()
+            .collect::<Result<Vec<Vec<BitbucketPullRequestIssue>>>>()?
+            .into_iter()
+            .flatten()
+            .collect::<HashSet<BitbucketPullRequestIssue>>()
+            .into_iter()
+            .collect();
+
+        let issues = futures::future::join_all(
+            pull_request_issues.iter()
+                .map(|pull_request_issue| jira_client.get_issue(&pull_request_issue.key))
+        )
+            .await
+            .into_iter()
+            .collect::<Result<Vec<JiraIssue>>>()?;
+
+        Ok(Changelog {
+            commits,
+            pull_requests,
+            issues
+        })
     }
 }
+

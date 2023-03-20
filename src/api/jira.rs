@@ -10,14 +10,14 @@ enum JiraEndpoints {
 }
 
 impl JiraEndpoints {
-    fn url(&self) -> &str {
+    fn url(&self) -> &'static str {
         match self {
             JiraEndpoints::GetIssue => "rest/api/latest/issue/{issueKey}"
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct JiraIssue {
     pub key: String,
@@ -33,7 +33,7 @@ impl Display for JiraIssue {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct JiraIssueFields {
     pub summary: String,
@@ -50,7 +50,7 @@ impl Display for JiraIssueFields {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Comments {
     pub comments: Vec<Comment>
@@ -64,7 +64,7 @@ impl Display for Comments {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Comment {
     pub author: JiraAuthor,
@@ -82,7 +82,7 @@ impl Display for Comment {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct JiraAuthor {
     pub name: String,
@@ -110,8 +110,8 @@ impl JiraClient {
         })
     }
 
-    pub async fn get_issue(&self, issue_key: &str) -> JiraIssue {
-        let issue_path: &str = &JiraEndpoints::GetIssue.url()
+    pub async fn get_issue(&self, issue_key: &str) -> Result<JiraIssue> {
+        let issue_path: String = JiraEndpoints::GetIssue.url()
             .replace("{issueKey}", issue_key);
 
         self.client.get::<JiraIssue>(&issue_path, None).await

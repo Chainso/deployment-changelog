@@ -1,9 +1,9 @@
-use std::fmt::Display;
+use std::{fmt::Display, collections::HashMap, marker::PhantomData};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use anyhow::Result;
 
-use super::api::RestClient;
+use super::api::{RestClient, Paginated};
 
 enum BitbucketEndpoints {
     CompareCommits,
@@ -12,11 +12,23 @@ enum BitbucketEndpoints {
 }
 
 impl BitbucketEndpoints {
-    fn url(&self) -> &str {
+    fn url(&self) -> &'static str {
         match self {
             BitbucketEndpoints::CompareCommits => "rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/compare/commits?from={from}&to={to}",
             BitbucketEndpoints::PullRequestsForCommit => "rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/commits/{commitId}/pull-requests",
             BitbucketEndpoints::IssuesForPullRequest => "/rest/jira/1.0/projects/{projectKey}/repos/{repositorySlug}/pull-requests/{pullRequestId}/issues"
+        }
+    }
+}
+
+enum BitbucketOptions {
+    PageStart
+}
+
+impl BitbucketOptions {
+    fn option(&self) -> &'static str {
+        match self {
+            BitbucketOptions::PageStart => "start"
         }
     }
 }
@@ -28,7 +40,8 @@ pub struct BitbucketPage<T> {
     pub size: u32,
     pub is_last_page: bool,
     pub start: u32,
-    pub limit: u32
+    pub limit: u32,
+    pub next_page_start: Option<u32>
 }
 
 impl<T: Serialize> Display for BitbucketPage<T> {
@@ -39,6 +52,57 @@ impl<T: Serialize> Display for BitbucketPage<T> {
         }
     }
 }
+
+pub struct BitbucketPaginated<'a, T> {
+    client: &'a BitbucketClient,
+    url: String,
+    query: HashMap<String, String>,
+    next_page_start: Option<u32>,
+    is_last_page: bool,
+    phantom: PhantomData<T>
+}
+
+impl<'a, T> BitbucketPaginated<'a, T> {
+    fn new(client: &'a BitbucketClient, url: String, query: Option<&HashMap<String, String>>) -> Self {
+        let query_options = match query {
+            Some(query_opts) => query_opts.clone(),
+            None => HashMap::with_capacity(1)
+        };
+
+        BitbucketPaginated {
+            client,
+            url,
+            query: query_options,
+            next_page_start: Some(0),
+            is_last_page: false,
+            phantom: PhantomData
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl<T: DeserializeOwned + Send> Paginated<T> for BitbucketPaginated<'_, T> {
+    async fn next(&mut self) -> Result<Vec<T>> {
+        if let Some(next_page_start) = self.next_page_start {
+            self.query.insert(
+                BitbucketOptions::PageStart.option().to_string(),
+                next_page_start.to_string()
+            );
+        };
+
+        let page = self.client.client.get::<BitbucketPage<T>>(&self.url, Some(&self.query)).await?;
+
+        self.next_page_start = page.next_page_start;
+        self.is_last_page = page.is_last_page;
+
+        Ok(page.values)
+    }
+
+    fn is_last(&self) -> bool {
+        self.is_last_page
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -59,7 +123,7 @@ impl Display for BitbucketCommit {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct BitbucketAuthor {
     pub name: String,
@@ -76,7 +140,7 @@ impl Display for BitbucketAuthor {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct BitbucketPullRequest {
     pub id: u64,
@@ -95,7 +159,7 @@ impl Display for BitbucketPullRequest {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct BitbucketPullRequestAuthor {
     pub user: BitbucketAuthor,
@@ -111,7 +175,7 @@ impl Display for BitbucketPullRequestAuthor {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct BitbucketPullRequestIssue {
     pub key: String,
@@ -127,6 +191,7 @@ impl Display for BitbucketPullRequestIssue {
     }
 }
 
+#[derive(Debug)]
 pub struct BitbucketClient {
     client: RestClient
 }
@@ -138,31 +203,31 @@ impl BitbucketClient {
         })
     }
 
-    pub async fn compare_commits(&self, project: &str, repo: &str, start_commit: &str, end_commit: &str) -> BitbucketPage<BitbucketCommit> {
-        let compare_commits_path: &str = &BitbucketEndpoints::CompareCommits.url()
+    pub fn compare_commits(&self, project: &str, repo: &str, start_commit: &str, end_commit: &str) -> BitbucketPaginated<BitbucketCommit> {
+        let compare_commits_path: String = BitbucketEndpoints::CompareCommits.url()
             .replace("{projectKey}", project)
             .replace("{repositorySlug}", repo)
             .replace("{from}", start_commit)
             .replace("{to}", end_commit);
 
-        self.client.get::<BitbucketPage<BitbucketCommit>>(&compare_commits_path, None).await
+        BitbucketPaginated::new(&self, compare_commits_path, None)
     }
 
-    pub async fn get_pull_requests(&self, project: &str, repo: &str, commit: &str) -> BitbucketPage<BitbucketPullRequest> {
-        let get_pull_requests_path: &str = &BitbucketEndpoints::PullRequestsForCommit.url()
+    pub fn get_pull_requests(&self, project: &str, repo: &str, commit: &str) -> BitbucketPaginated<BitbucketPullRequest> {
+        let get_pull_requests_path: String = BitbucketEndpoints::PullRequestsForCommit.url()
             .replace("{projectKey}", project)
             .replace("{repositorySlug}", repo)
             .replace("{commitId}", commit);
 
-        self.client.get::<BitbucketPage<BitbucketPullRequest>>(&get_pull_requests_path, None).await
+        BitbucketPaginated::new(&self, get_pull_requests_path, None)
     }
 
-    pub async fn get_pull_request_issues(&self, project: &str, repo: &str, pull_request_id: u64) -> Vec<BitbucketPullRequestIssue> {
-        let get_pull_requests_path: &str = &BitbucketEndpoints::IssuesForPullRequest.url()
+    pub async fn get_pull_request_issues(&self, project: &str, repo: &str, pull_request_id: u64) -> Result<Vec<BitbucketPullRequestIssue>> {
+        let get_pull_request_issues_path: String = BitbucketEndpoints::IssuesForPullRequest.url()
             .replace("{projectKey}", project)
             .replace("{repositorySlug}", repo)
             .replace("{pullRequestId}", &pull_request_id.to_string());
 
-        self.client.get::<Vec<BitbucketPullRequestIssue>>(&get_pull_requests_path, None).await
+        self.client.get::<Vec<BitbucketPullRequestIssue>>(&get_pull_request_issues_path, None).await
     }
 }
