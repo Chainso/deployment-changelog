@@ -39,7 +39,7 @@ impl Display for JiraIssue {
 #[serde(rename_all = "camelCase")]
 pub struct JiraIssueFields {
     pub summary: String,
-    pub description: String,
+    pub description: Option<String>,
     pub comment: Comments,
     pub created: DateTime<Local>,
     pub updated: DateTime<Local>
