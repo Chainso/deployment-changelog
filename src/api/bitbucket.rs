@@ -1,7 +1,7 @@
 use std::{fmt::Display, collections::HashMap, marker::PhantomData};
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_with::chrono::{DateTime, Utc};
+use serde_with::chrono::{DateTime, Local};
 use serde_with::TimestampMilliSeconds;
 use serde_with::formats::Flexible;
 use anyhow::Result;
@@ -154,10 +154,10 @@ pub struct BitbucketPullRequest {
     pub author: BitbucketPullRequestAuthor,
 
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub created_date: DateTime<Utc>,
+    pub created_date: DateTime<Local>,
 
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub updated_date: DateTime<Utc>
+    pub updated_date: DateTime<Local>
 }
 
 impl Display for BitbucketPullRequest {

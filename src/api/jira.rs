@@ -1,9 +1,8 @@
 use std::fmt::Display;
 
 use serde::{Serialize, Deserialize};
-use serde_with::chrono::{DateTime, Utc};
-use serde_with::TimestampMilliSeconds;
-use serde_with::formats::Flexible;
+use chrono::{DateTime, Local};
+
 use anyhow::Result;
 
 use super::api::RestClient;
@@ -36,19 +35,14 @@ impl Display for JiraIssue {
     }
 }
 
-#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct JiraIssueFields {
     pub summary: String,
     pub description: String,
     pub comment: Comments,
-
-    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub created: DateTime<Utc>,
-
-    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub updated: DateTime<Utc>
+    pub created: DateTime<Local>,
+    pub updated: DateTime<Local>
 }
 
 impl Display for JiraIssueFields {
@@ -74,18 +68,14 @@ impl Display for Comments {
         }
     }
 }
-#[serde_with::serde_as]
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Comment {
     pub author: JiraAuthor,
     pub body: String,
-
-    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub created: DateTime<Utc>,
-
-    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub updated: DateTime<Utc>
+    pub created: DateTime<Local>,
+    pub updated: DateTime<Local>
 }
 
 impl Display for Comment {
