@@ -45,10 +45,10 @@ pub struct JiraIssueFields {
     pub comment: Comments,
 
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub created_date: DateTime<Utc>,
+    pub created: DateTime<Utc>,
 
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub updated_date: DateTime<Utc>
+    pub updated: DateTime<Utc>
 }
 
 impl Display for JiraIssueFields {
@@ -74,13 +74,18 @@ impl Display for Comments {
         }
     }
 }
+#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct Comment {
     pub author: JiraAuthor,
-    pub body: String
-    // pub created: Date,
-    // pub updated: Date
+    pub body: String,
+
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
+    pub created: DateTime<Utc>,
+
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
+    pub updated: DateTime<Utc>
 }
 
 impl Display for Comment {
