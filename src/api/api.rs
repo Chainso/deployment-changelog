@@ -1,6 +1,6 @@
 use std::{time::Duration, collections::HashMap};
 
-use reqwest::{Client, header::{HeaderMap, CONTENT_TYPE, HeaderValue, ACCEPT}, Error, Url, Request};
+use reqwest::{Client, header::{HeaderMap, CONTENT_TYPE, HeaderValue, ACCEPT}, Url, Request, ClientBuilder};
 use serde::de::DeserializeOwned;
 use anyhow::{Context, Result};
 
@@ -30,23 +30,12 @@ pub struct RestClient {
 
 impl RestClient {
     pub fn new(base_url: &str) -> Result<Self> {
-        let mut headers: HeaderMap = HeaderMap::with_capacity(2);
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static(APPLICATION_JSON));
-        headers.insert(ACCEPT, HeaderValue::from_static(APPLICATION_JSON));
-
-        let url = Url::parse(base_url)
-            .with_context(|| format!("Error parsing base URL {base_url}"))?;
-
-        let client = Client::builder()
-            .default_headers(headers)
-            .timeout(Duration::from_secs(5))
+        RestClient::builder(base_url)?
             .build()
-            .with_context(|| format!("Error creating REST client with base URL {base_url}"))?;
+    }
 
-        Ok(Self {
-            base_url: url,
-            client
-        })
+    pub fn builder(base_url: &str) -> Result<RestClientBuilder> {
+        RestClientBuilder::new(base_url)
     }
 
     pub async fn get<R: DeserializeOwned>(&self, url: &str, query: Option<&HashMap<String, String>>) -> Result<R> {
@@ -77,6 +66,43 @@ impl RestClient {
                     "Error creating {method} request URL with base URL {0} and path {url}",
                     self.base_url
                 )
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct RestClientBuilder {
+    pub base_url: Url,
+    pub client_builder: ClientBuilder
+}
+
+impl RestClientBuilder {
+    pub fn new(base_url: &str) -> Result<Self> {
+        let mut headers: HeaderMap = HeaderMap::with_capacity(2);
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static(APPLICATION_JSON));
+        headers.insert(ACCEPT, HeaderValue::from_static(APPLICATION_JSON));
+
+        let url = Url::parse(base_url)
+            .with_context(|| format!("Error parsing base URL {base_url}"))?;
+
+        let client_builder = Client::builder()
+            .default_headers(headers)
+            .timeout(Duration::from_secs(5));
+
+        Ok(Self {
+            base_url: url,
+            client_builder
+        })
+    }
+    
+    pub fn build(self) -> Result<RestClient> {
+        let client = self.client_builder
+            .build()
+            .with_context(|| format!("Error creating REST client with base URL {0}", self.base_url))?;
+
+        Ok(RestClient {
+            base_url: self.base_url,
+            client
         })
     }
 }
