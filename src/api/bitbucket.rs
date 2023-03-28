@@ -213,6 +213,12 @@ impl BitbucketClient {
         })
     }
 
+    pub fn from_client(client: RestClient) -> Self {
+        Self {
+            client
+        }
+    }
+
     pub fn compare_commits(&self, project: &str, repo: &str, start_commit: &str, end_commit: &str) -> BitbucketPaginated<BitbucketCommit> {
         let compare_commits_path: String = BitbucketEndpoints::CompareCommits.url()
             .replace("{projectKey}", project)

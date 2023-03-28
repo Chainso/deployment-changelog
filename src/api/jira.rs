@@ -120,6 +120,12 @@ impl JiraClient {
         })
     }
 
+    pub fn from_client(client: RestClient) -> Self {
+        Self {
+            client
+        }
+    }
+
     pub async fn get_issue(&self, issue_key: &str) -> Result<JiraIssue> {
         let issue_path: String = JiraEndpoints::GetIssue.url()
             .replace("{issueKey}", issue_key);
