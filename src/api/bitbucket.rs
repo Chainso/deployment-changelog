@@ -1,6 +1,9 @@
 use std::{fmt::Display, collections::HashMap, marker::PhantomData};
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_with::chrono::{DateTime, Utc};
+use serde_with::TimestampMilliSeconds;
+use serde_with::formats::Flexible;
 use anyhow::Result;
 
 use super::api::{RestClient, Paginated};
@@ -14,9 +17,9 @@ enum BitbucketEndpoints {
 impl BitbucketEndpoints {
     fn url(&self) -> &'static str {
         match self {
-            BitbucketEndpoints::CompareCommits => "rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/compare/commits?from={from}&to={to}",
-            BitbucketEndpoints::PullRequestsForCommit => "rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}/commits/{commitId}/pull-requests",
-            BitbucketEndpoints::IssuesForPullRequest => "/rest/jira/1.0/projects/{projectKey}/repos/{repositorySlug}/pull-requests/{pullRequestId}/issues"
+            BitbucketEndpoints::CompareCommits => "rest/api/latest/projects/{projectKey}/repos/{repositorySlug}/compare/commits?from={from}&to={to}",
+            BitbucketEndpoints::PullRequestsForCommit => "rest/api/latest/projects/{projectKey}/repos/{repositorySlug}/commits/{commitId}/pull-requests",
+            BitbucketEndpoints::IssuesForPullRequest => "/rest/jira/latest/projects/{projectKey}/repos/{repositorySlug}/pull-requests/{pullRequestId}/issues"
         }
     }
 }
@@ -140,6 +143,7 @@ impl Display for BitbucketAuthor {
     }
 }
 
+#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct BitbucketPullRequest {
@@ -147,7 +151,13 @@ pub struct BitbucketPullRequest {
     pub title: String,
     pub description: String,
     pub open: bool,
-    pub author: BitbucketPullRequestAuthor
+    pub author: BitbucketPullRequestAuthor,
+
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
+    pub created_date: DateTime<Utc>,
+
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
+    pub updated_date: DateTime<Utc>
 }
 
 impl Display for BitbucketPullRequest {

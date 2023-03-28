@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
 use serde::{Serialize, Deserialize};
+use serde_with::chrono::{DateTime, Utc};
+use serde_with::TimestampMilliSeconds;
+use serde_with::formats::Flexible;
 use anyhow::Result;
 
 use super::api::RestClient;
@@ -33,12 +36,19 @@ impl Display for JiraIssue {
     }
 }
 
+#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct JiraIssueFields {
     pub summary: String,
     pub description: String,
-    pub comment: Comments
+    pub comment: Comments,
+
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
+    pub created_date: DateTime<Utc>,
+
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
+    pub updated_date: DateTime<Utc>
 }
 
 impl Display for JiraIssueFields {
