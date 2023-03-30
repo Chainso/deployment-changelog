@@ -182,6 +182,18 @@ pub struct BitbucketPaginated<'a, T> {
 }
 
 impl<'a, T> BitbucketPaginated<'a, T> {
+    /// Creates a new `BitbucketPaginated` instance with the specified client, URL, and query options.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use deployment_changelog::api::bitbucket::{BitbucketClient, BitbucketPaginated};
+    ///
+    /// let bitbucket_base_url = "https://your-bitbucket-instance.com/";
+    /// let client = BitbucketClient::new(bitbucket_base_url).unwrap();
+    /// let url = "some/endpoint";
+    /// let paginated = BitbucketPaginated::new(&client, url.to_string(), None);
+    /// ```
     fn new(client: &'a BitbucketClient, url: String, query: Option<&HashMap<String, String>>) -> Self {
         let query_options = match query {
             Some(query_opts) => query_opts.clone(),
@@ -201,6 +213,23 @@ impl<'a, T> BitbucketPaginated<'a, T> {
 
 #[async_trait::async_trait]
 impl<T: DeserializeOwned + Send> Paginated<T> for BitbucketPaginated<'_, T> {
+    /// Fetches the next page of items of type `T` from the API and returns them as a vector.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use deployment_changelog::api::bitbucket::{BitbucketClient, BitbucketCommit, BitbucketPaginated};
+    ///
+    /// async fn fetch_next_page_of_commits() {
+    ///     let bitbucket_base_url = "https://your-bitbucket-instance.com/";
+    ///     let client = BitbucketClient::new(bitbucket_base_url).unwrap();
+    ///     let url = "some/endpoint";
+    ///     let mut paginated = BitbucketPaginated::<BitbucketCommit>::new(&client, url.to_string(), None);
+    ///
+    ///     let commits = paginated.next().await.unwrap();
+    ///     println!("Fetched {} commits", commits.len());
+    /// }
+    /// ```
     async fn next(&mut self) -> Result<Vec<T>> {
         if let Some(next_page_start) = self.next_page_start {
             self.query.insert(
@@ -217,6 +246,25 @@ impl<T: DeserializeOwned + Send> Paginated<T> for BitbucketPaginated<'_, T> {
         Ok(page.values)
     }
 
+    /// Returns whether the last page of items has been fetched.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use deployment_changelog::api::bitbucket::{BitbucketClient, BitbucketCommit, BitbucketPaginated};
+    ///
+    /// async fn iterate_over_all_commits() {
+    ///     let bitbucket_base_url = "https://your-bitbucket-instance.com/";
+    ///     let client = BitbucketClient::new(bitbucket_base_url).unwrap();
+    ///     let url = "some/endpoint";
+    ///     let mut paginated = BitbucketPaginated::<BitbucketCommit>::new(&client, url.to_string(), None);
+    ///
+    ///     while !paginated.is_last() {
+    ///         let commits = paginated.next().await.unwrap();
+    ///         println!("Fetched {} commits", commits.len());
+    ///     }
+    /// }
+    /// ```
     fn is_last(&self) -> bool {
         self.is_last_page
     }
@@ -515,24 +563,61 @@ impl Display for BitbucketPullRequestIssue {
 ///     }
 /// }
 /// ```
+/// BitbucketClient is a struct that provides methods for interacting with the Bitbucket API.
+///
+/// It wraps the RestClient struct and exposes methods for fetching commits, pull requests,
+/// and related issues.
+///
+/// # Example
+///
+/// ```
+/// let client = BitbucketClient::new("https://api.bitbucket.com").unwrap();
+/// ```
 #[derive(Debug)]
 pub struct BitbucketClient {
     client: RestClient
 }
 
 impl BitbucketClient {
+    /// Creates a new BitbucketClient instance given the base URL.
+    ///
+    /// # Arguments
+    ///
+    /// * `base_url` - The base URL of the Bitbucket API.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a BitbucketClient instance or an error if the provided base URL is invalid.
     pub fn new(base_url: &str) -> Result<Self> {
         Ok(Self {
             client: RestClient::new(base_url)?
         })
     }
 
+    /// Constructs a BitbucketClient instance from a pre-initialized RestClient.
+    ///
+    /// # Arguments
+    ///
+    /// * `client` - An instance of RestClient.
     pub fn from_client(client: RestClient) -> Self {
         Self {
             client
         }
     }
 
+    /// Returns a BitbucketPaginated<BitbucketCommit> instance for fetching commits between
+    /// two commit IDs (start_commit and end_commit) in a specified Bitbucket project and repository.
+    ///
+    /// # Arguments
+    ///
+    /// * `project` - The project key in Bitbucket.
+    /// * `repo` - The repository slug in Bitbucket.
+    /// * `start_commit` - The commit ID to start the comparison from.
+    /// * `end_commit` - The commit ID to end the comparison at.
+    ///
+    /// # Returns
+    ///
+    /// A BitbucketPaginated<BitbucketCommit> instance.
     pub fn compare_commits(&self, project: &str, repo: &str, start_commit: &str, end_commit: &str) -> BitbucketPaginated<BitbucketCommit> {
         let compare_commits_path: String = BitbucketEndpoints::CompareCommits.url()
             .replace("{projectKey}", project)
@@ -543,6 +628,18 @@ impl BitbucketClient {
         BitbucketPaginated::new(&self, compare_commits_path, None)
     }
 
+    /// Returns a BitbucketPaginated<BitbucketPullRequest> instance for fetching pull requests
+    /// associated with a specific commit in a Bitbucket project and repository.
+    ///
+    /// # Arguments
+    ///
+    /// * `project` - The project key in Bitbucket.
+    /// * `repo` - The repository slug in Bitbucket.
+    /// * `commit` - The commit ID to fetch the pull requests for.
+    ///
+    /// # Returns
+    ///
+    /// A BitbucketPaginated<BitbucketPullRequest> instance.
     pub fn get_pull_requests(&self, project: &str, repo: &str, commit: &str) -> BitbucketPaginated<BitbucketPullRequest> {
         let get_pull_requests_path: String = BitbucketEndpoints::PullRequestsForCommit.url()
             .replace("{projectKey}", project)
@@ -552,6 +649,17 @@ impl BitbucketClient {
         BitbucketPaginated::new(&self, get_pull_requests_path, None)
     }
 
+    /// Fetches issues associated with a specific pull request in a Bitbucket project and repository.
+    ///
+    /// # Arguments
+    ///
+    /// * `project` - The project key in Bitbucket.
+    /// * `repo` - The repository slug in Bitbucket.
+    /// * `pull_request_id` - The ID of the pull request to fetch the issues for.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a Vec of BitbucketPullRequestIssue instances or an error if the request fails.
     pub async fn get_pull_request_issues(&self, project: &str, repo: &str, pull_request_id: u64) -> Result<Vec<BitbucketPullRequestIssue>> {
         let get_pull_request_issues_path: String = BitbucketEndpoints::IssuesForPullRequest.url()
             .replace("{projectKey}", project)
