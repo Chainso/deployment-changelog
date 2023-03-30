@@ -1,3 +1,3 @@
-pub mod api;
+pub mod rest;
 pub mod bitbucket;
 pub mod jira;

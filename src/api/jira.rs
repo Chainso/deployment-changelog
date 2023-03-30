@@ -5,7 +5,7 @@ use chrono::{DateTime, Local};
 
 use anyhow::Result;
 
-use super::api::RestClient;
+use super::rest::RestClient;
 
 enum JiraEndpoints {
     GetIssue

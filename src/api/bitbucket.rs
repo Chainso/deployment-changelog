@@ -6,7 +6,7 @@ use serde_with::TimestampMilliSeconds;
 use serde_with::formats::Flexible;
 use anyhow::Result;
 
-use super::api::{RestClient, Paginated};
+use super::rest::{RestClient, Paginated};
 
 enum BitbucketEndpoints {
     CompareCommits,
