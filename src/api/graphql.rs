@@ -1,4 +1,4 @@
-use anyhow::{Error, Context, Result};
+use anyhow::{Context, Result};
 use graphql_client::{GraphQLQuery, QueryBody, Response};
 
 use super::rest::RestClient;

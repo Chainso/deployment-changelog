@@ -1,27 +1,25 @@
-use crate::api::{rest::Paginated, jira::{JiraIssue, JiraClient}, bitbucket::{BitbucketCommit, BitbucketPullRequest, BitbucketPullRequestIssue, BitbucketClient, BitbucketPaginated}};
+use crate::api::{rest::Paginated, jira::{JiraIssue, JiraClient}, bitbucket::{BitbucketCommit, BitbucketPullRequest, BitbucketPullRequestIssue, BitbucketClient, BitbucketPaginated}, spinnaker::SpinnakerClient};
 
 use std::{fmt::Display, collections::HashSet};
-use clap::Parser;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
 
-#[derive(Parser, Debug)]
+#[derive(Debug)]
 pub enum CommitSpecifier {
-    Spinnaker(SpinnakerArgs),
-    CommitRange(CommitRange)
+    Spinnaker(SpinnakerEnvironment),
+    CommitRange(GitCommitRange)
 }
 
-#[derive(Parser, Debug)]
-pub struct SpinnakerArgs {
-    #[clap(long, short = 's', about, long_help = "The URL to your Spinnaker server", env = "SPINNAKER_URL")]
-    url: String,
-    env: String
+#[derive(Debug)]
+pub struct SpinnakerEnvironment {
+    pub client: SpinnakerClient,
+    pub env: String
 }
 
-#[derive(Parser, Debug)]
-pub struct CommitRange {
-    start_commit: String,
-    end_commit: String
+#[derive(Debug)]
+pub struct GitCommitRange {
+    pub start_commit: String,
+    pub end_commit: String
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -50,12 +48,12 @@ impl Changelog {
         commit_specifier: &CommitSpecifier
     ) -> Result<Changelog> {
         match commit_specifier {
-            CommitSpecifier::Spinnaker(spinnaker_args) => Self::get_changelog_from_spinnaker(
+            CommitSpecifier::Spinnaker(spinnaker_env) => Self::get_changelog_from_spinnaker(
                 bitbucket_client,
                 jira_client,
                 project,
                 repo,
-                spinnaker_args
+                spinnaker_env
             ).await,
             CommitSpecifier::CommitRange(commit_range) => Self::get_changelog_from_range(
                 bitbucket_client,
@@ -72,7 +70,7 @@ impl Changelog {
         jira_client: &JiraClient,
         project: &str,
         repo: &str,
-        spinnaker_args: &SpinnakerArgs
+        spinnaker_env: &SpinnakerEnvironment
     ) -> Result<Changelog> {
         unimplemented!()
     }
@@ -82,7 +80,7 @@ impl Changelog {
         jira_client: &JiraClient,
         project: &str,
         repo: &str,
-        commit_range: &CommitRange
+        commit_range: &GitCommitRange
     ) -> Result<Changelog> {
         let commits: Vec<BitbucketCommit> = bitbucket_client.compare_commits(
             project,
