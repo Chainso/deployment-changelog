@@ -94,8 +94,8 @@
 //! handling pagination and deserialization of the responses.
 use std::{time::Duration, collections::HashMap};
 
-use reqwest::{Client, header::{HeaderMap, CONTENT_TYPE, HeaderValue, ACCEPT}, Url, Request, ClientBuilder};
-use serde::de::DeserializeOwned;
+use reqwest::{Client, header::{HeaderMap, CONTENT_TYPE, HeaderValue, ACCEPT}, Url, Request, ClientBuilder, Body};
+use serde::{de::DeserializeOwned, Serialize};
 use anyhow::{Context, Result};
 
 static APPLICATION_JSON: &str = "application/json";
@@ -244,11 +244,22 @@ impl RestClient {
         self.execute(request).await
     }
 
+    pub async fn post_json<R: DeserializeOwned, J: Serialize + ?Sized>(&self, url: &str, json_body: &J) -> Result<R> {
+        let method = "POST";
+        let request_url = self.build_url(url, method)?;
+
+        let request = self.client.post(request_url.clone())
+            .json(json_body)
+            .build()?;
+
+        self.execute(request).await
+    }
+
     pub async fn execute<R: DeserializeOwned>(&self, request: Request) -> Result<R> {
         log::info!("Making request to {}", request.url());
 
         let response = self.client.execute(request).await
-            .with_context(|| "Error executing request: {request}")?;
+            .with_context(|| "Error executing request")?;
 
         return response.json::<R>().await
             .with_context(|| "Error deserializing response");

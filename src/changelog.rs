@@ -50,7 +50,13 @@ impl Changelog {
         commit_specifier: &CommitSpecifier
     ) -> Result<Changelog> {
         match commit_specifier {
-            CommitSpecifier::Spinnaker(spinnaker_args) => unimplemented!(),
+            CommitSpecifier::Spinnaker(spinnaker_args) => Self::get_changelog_from_spinnaker(
+                bitbucket_client,
+                jira_client,
+                project,
+                repo,
+                spinnaker_args
+            ).await,
             CommitSpecifier::CommitRange(commit_range) => Self::get_changelog_from_range(
                 bitbucket_client,
                 jira_client,

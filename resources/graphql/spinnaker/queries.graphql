@@ -1,0 +1,22 @@
+query MdEnvironmentStatesQuery($appName: String!, $environments: [String!]!) {
+  ... on MdApplication {
+    environments(names: $environments) {
+      state {
+        artifacts {
+          versions (statuses: [CURRENT, PENDING]) {
+            buildNumber
+            createdAt
+            environment
+            status
+            gitMetadata {
+              project
+              repoName
+              commit
+              author
+            }
+          }
+        }
+      }
+    }
+  }
+}
