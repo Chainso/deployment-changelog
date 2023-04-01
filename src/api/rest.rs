@@ -94,7 +94,7 @@
 //! handling pagination and deserialization of the responses.
 use std::{time::Duration, collections::HashMap};
 
-use reqwest::{Client, header::{HeaderMap, CONTENT_TYPE, HeaderValue, ACCEPT}, Url, Request, ClientBuilder, Body};
+use reqwest::{Client, header::{HeaderMap, CONTENT_TYPE, HeaderValue, ACCEPT}, Url, Request, ClientBuilder};
 use serde::{de::DeserializeOwned, Serialize};
 use anyhow::{Context, Result};
 

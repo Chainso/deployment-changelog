@@ -1,8 +1,10 @@
 query MdEnvironmentStatesQuery($appName: String!, $environments: [String!]!) {
-  ... on MdApplication {
+  application(appName: $appName) {
     environments(names: $environments) {
       state {
         artifacts {
+          name
+          type
           versions (statuses: [CURRENT, PENDING]) {
             buildNumber
             createdAt

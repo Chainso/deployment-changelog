@@ -10,7 +10,7 @@ type InstantTime = DateTime<Local>;
 #[graphql(
     schema_path = "resources/graphql/spinnaker/schema.graphql",
     query_path = "resources/graphql/spinnaker/queries.graphql",
-    response_derives = "Debug, Serialize, Deserialize"
+    response_derives = "Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone"
 )]
 pub struct MdEnvironmentStatesQuery;
 

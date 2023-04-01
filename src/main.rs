@@ -15,9 +15,6 @@ struct Args {
     #[clap(long, short = 'j', about, long_help = "The URL to your JIRA server", env = "JIRA_URL")]
     jira_url: String,
 
-    project: String,
-    repo: String,
-
     #[clap(flatten)]
     verbose: Verbosity
 }
@@ -32,11 +29,14 @@ enum CommitSpecifierSubcommand {
 struct SpinnakerArgs {
     #[clap(long, short = 's', about, long_help = "The URL to your Spinnaker server", env = "SPINNAKER_URL")]
     url: String,
+    app_name: String,
     env: String
 }
 
 #[derive(Parser, Debug)]
 struct CommitRangeArgs {
+    project: String,
+    repo: String,
     start_commit: String,
     end_commit: String
 }
@@ -48,9 +48,12 @@ impl TryFrom<&CommitSpecifierSubcommand> for CommitSpecifier {
         match commit_specifier_subcommand {
             CommitSpecifierSubcommand::Spinnaker(spinnaker_args) => Ok(CommitSpecifier::Spinnaker(SpinnakerEnvironment {
                 client: SpinnakerClient::new(&spinnaker_args.url)?,
+                app_name: spinnaker_args.app_name.clone(),
                 env: spinnaker_args.env.clone()
             })),
             CommitSpecifierSubcommand::CommitRange(commit_range) => Ok(CommitSpecifier::CommitRange(GitCommitRange {
+                project: commit_range.project.clone(),
+                repo: commit_range.repo.clone(),
                 start_commit: commit_range.start_commit.clone(),
                 end_commit: commit_range.end_commit.clone()
             }))
@@ -85,8 +88,6 @@ async fn print_changelog(args: &Args) -> Result<()> {
     let changelog: Changelog = Changelog::new(
         &bitbucket_client,
         &jira_client,
-        &args.project,
-        &args.repo,
         &commit_specifier
     ).await?;
 
