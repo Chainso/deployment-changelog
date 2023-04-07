@@ -160,13 +160,48 @@ static APPLICATION_JSON: &str = "application/json";
 /// ```
 #[async_trait::async_trait]
 pub trait Paginated<T: Send> {
-    /// Retrieve the next set of results from the API.
+    /// Fetches the next page of results and returns a vector of instances of the generic type T.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut paginated_commits = bitbucket_client.compare_commits("PROJECT", "REPO", "start_commit", "end_commit");
+    /// let next_page_commits = paginated_commits.next().await?;
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a Vec of instances of the generic type T or an error if the request fails.
     async fn next(&mut self) -> Result<Vec<T>>;
 
-    /// Check if the current page is the last page.
+    /// Determines whether the last page of results has been reached.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut paginated_commits = bitbucket_client.compare_commits("PROJECT", "REPO", "start_commit", "end_commit");
+    /// let is_last_page = paginated_commits.is_last();
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// A boolean value indicating whether the last page of results has been reached.
     fn is_last(&self) -> bool;
 
-    /// Retrieve all results from the API.
+    /// Fetches all pages of results and returns a vector of instances of the generic type T.
+    ///
+    /// This method repeatedly calls `next()` until `is_last()` returns true.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut paginated_commits = bitbucket_client.compare_commits("PROJECT", "REPO", "start_commit", "end_commit");
+    /// let all_commits = paginated_commits.all().await?;
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a Vec of instances of the generic type T or an error if the request fails.
     async fn all(&mut self) -> Result<Vec<T>> {
         let mut all_results = Vec::new();
 
@@ -224,15 +259,61 @@ pub struct RestClient {
 }
 
 impl RestClient {
+    /// Creates a new `RestClient` instance with the given base URL.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rest_client = RestClient::new("https://api.bitbucket.org").unwrap();
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `base_url` - The base URL of the REST API to be accessed.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a new RestClient instance or an error if the base URL cannot be parsed.
     pub fn new(base_url: &str) -> Result<Self> {
         RestClient::builder(base_url)?
             .build()
     }
 
+    /// Creates a new `RestClientBuilder` instance with the given base URL.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rest_client_builder = RestClient::builder("https://api.bitbucket.org").unwrap();
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `base_url` - The base URL of the REST API to be accessed.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a new RestClientBuilder instance or an error if the base URL cannot be parsed.
     pub fn builder(base_url: &str) -> Result<RestClientBuilder> {
         RestClientBuilder::new(base_url)
     }
 
+    /// Sends a GET request to the specified URL and deserializes the response to the generic type R.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let commits: Vec<Commit> = rest_client.get("https://api.bitbucket.org/api/rest/2.0/repositories/user/repo/commits", None).await.unwrap();
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The URL of the resource to be fetched.
+    /// * `query` - An optional HashMap of query parameters to be included in the request.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing an instance of the generic type R or an error if the request fails.
     pub async fn get<R: DeserializeOwned>(&self, url: &str, query: Option<&HashMap<String, String>>) -> Result<R> {
         let method = "GET";
         let request_url = self.build_url(url, method)?;
@@ -244,6 +325,23 @@ impl RestClient {
         self.execute(request).await
     }
 
+    /// Sends a POST request to the specified URL with a JSON body and deserializes the response to the generic type R.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let new_comment = NewComment { content: "This is a comment.".to_string() };
+    /// let comment: Comment = rest_client.post_json("https://api.bitbucket.org/api/rest/2.0/repositories/user/repo/pullrequests/1/comments", &new_comment).await.unwrap();
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The URL of the resource to be created or updated.
+    /// * `json_body` - The JSON body to be sent with the request.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing an instance of the generic type R or an error if the request fails.
     pub async fn post_json<R: DeserializeOwned, J: Serialize + ?Sized>(&self, url: &str, json_body: &J) -> Result<R> {
         let method = "POST";
         let request_url = self.build_url(url, method)?;
@@ -255,6 +353,24 @@ impl RestClient {
         self.execute(request).await
     }
 
+    /// Executes the given `Request` and deserializes the response to the generic type R.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let request = rest_client.client.get("https://api.bitbucket.org/api/rest/2.0/repositories/user/repo/commits")
+    ///     .build()
+    ///     .unwrap();
+    /// let commits: Vec<Commit> = rest_client.execute(request).await.unwrap();
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The `Request` to be executed.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing an instance of the generic type R or an error if the request fails.
     pub async fn execute<R: DeserializeOwned>(&self, request: Request) -> Result<R> {
         log::info!("Making request to {}", request.url());
 
@@ -265,6 +381,22 @@ impl RestClient {
             .with_context(|| "Error deserializing response");
     }
 
+    /// Constructs a `Url` using the base URL and the provided path.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let url = rest_client.build_url("/2.0/repositories/user/repo/commits", "GET").unwrap();
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The path to be appended to the base URL.
+    /// * `method` - The HTTP method (e.g., "GET", "POST") for which the URL is being constructed.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the constructed `Url` or an error if the URL cannot be created.
     pub fn build_url(&self, url: &str, method: &str) -> Result<Url> {
         self.base_url.join(url) 
             .with_context(|| {
@@ -303,6 +435,23 @@ pub struct RestClientBuilder {
 }
 
 impl RestClientBuilder {
+    /// Creates a new instance of `RestClientBuilder` with the given base URL.
+    ///
+    /// The builder has default headers and a timeout of 5 seconds.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rest_client_builder = RestClientBuilder::new("https://api.bitbucket.org").unwrap();
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `base_url` - The base URL for the REST API.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing an instance of `RestClientBuilder` or an error if the URL cannot be parsed.
     pub fn new(base_url: &str) -> Result<Self> {
         let mut headers: HeaderMap = HeaderMap::with_capacity(2);
         headers.insert(CONTENT_TYPE, HeaderValue::from_static(APPLICATION_JSON));
@@ -321,6 +470,18 @@ impl RestClientBuilder {
         })
     }
     
+    /// Constructs a `RestClient` using the settings from the `RestClientBuilder`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rest_client_builder = RestClientBuilder::new("https://api.bitbucket.org").unwrap();
+    /// let rest_client = rest_client_builder.build().unwrap();
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// A Result containing an instance of `RestClient` or an error if the client cannot be created.
     pub fn build(self) -> Result<RestClient> {
         let client = self.client_builder
             .build()

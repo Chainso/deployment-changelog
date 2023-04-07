@@ -143,7 +143,7 @@ impl<T: Serialize> Display for BitbucketPage<T> {
 /// The `BitbucketPaginated` struct represents an iterator for paginated results returned by the
 /// Bitbucket API.
 ///
-/// It is generic over the type `T`, and is used in conjunction with [`Paginated`](create::api::Paginated) trait.
+/// It is generic over the type `T`, and is used in conjunction with [`Paginated`](crate::api::rest::Paginated) trait.
 /// It abstracts the pagination logic, allowing you to easily fetch multiple pages of results without
 /// worrying about pagination details.
 ///
@@ -605,7 +605,7 @@ impl BitbucketClient {
         }
     }
 
-    /// Returns a BitbucketPaginated<BitbucketCommit> instance for fetching commits between
+    /// Returns a `BitbucketPaginated<BitbucketCommit>` instance for fetching commits between
     /// two commit IDs (start_commit and end_commit) in a specified Bitbucket project and repository.
     ///
     /// # Arguments
@@ -617,7 +617,7 @@ impl BitbucketClient {
     ///
     /// # Returns
     ///
-    /// A BitbucketPaginated<BitbucketCommit> instance.
+    /// A `BitbucketPaginated<BitbucketCommit>` instance.
     pub fn compare_commits(&self, project: &str, repo: &str, start_commit: &str, end_commit: &str) -> BitbucketPaginated<BitbucketCommit> {
         let compare_commits_path: String = BitbucketEndpoints::CompareCommits.url()
             .replace("{projectKey}", project)
@@ -628,7 +628,7 @@ impl BitbucketClient {
         BitbucketPaginated::new(&self, compare_commits_path, None)
     }
 
-    /// Returns a BitbucketPaginated<BitbucketPullRequest> instance for fetching pull requests
+    /// Returns a `BitbucketPaginated<BitbucketPullRequest>` instance for fetching pull requests
     /// associated with a specific commit in a Bitbucket project and repository.
     ///
     /// # Arguments
@@ -639,7 +639,7 @@ impl BitbucketClient {
     ///
     /// # Returns
     ///
-    /// A BitbucketPaginated<BitbucketPullRequest> instance.
+    /// A `BitbucketPaginated<BitbucketPullRequest>` instance.
     pub fn get_pull_requests(&self, project: &str, repo: &str, commit: &str) -> BitbucketPaginated<BitbucketPullRequest> {
         let get_pull_requests_path: String = BitbucketEndpoints::PullRequestsForCommit.url()
             .replace("{projectKey}", project)

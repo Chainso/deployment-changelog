@@ -1,15 +1,120 @@
+//! The `changelog` module provides functionality for generating a changelog for a deployment
+//! based on Jira issues and associated commits and pull requests in Bitbucket.
+//!
+//! This module contains the main `Changelog` struct and associated implementations. The `Changelog` struct
+//! represents the final changelog data that includes information about commits, pull requests, and Jira issues.
+//!
+//! # Example
+//!
+//! ```
+//! use deployment_changelog::changelog::{Changelog, CommitSpecifier, GitCommitRange};
+//! use deployment_changelog::api::{bitbucket::BitbucketClient, jira::JiraClient};
+//!
+//! #[tokio::main]
+//! async fn main() {
+//!     let bitbucket_client = BitbucketClient::new("https://api.bitbucket.org");
+//!     let jira_client = JiraClient::new("https://your-domain.atlassian.net");
+//!
+//!     let commit_range = GitCommitRange {
+//!         project: String::from("my-project"),
+//!         repo: String::from("my-repo"),
+//!         start_commit: String::from("abcdef123456"),
+//!         end_commit: String::from("ghijkl789012")
+//!     };
+//!
+//!     let commit_specifier = CommitSpecifier::CommitRange(commit_range);
+//!
+//!     let changelog = Changelog::new(&bitbucket_client, &jira_client, &commit_specifier).await.unwrap();
+//!
+//!     println!("{:?}", changelog);
+//! }
+//! ```
+//!
+//! In this example, we create instances of `BitbucketClient` and `JiraClient` with their
+//! respective server URLs. Then, we define a `GitCommitRange` with the `project`, `repo`,
+//! `start_commit`, and `end_commit` that we want to generate a changelog for.
+//!
+//! We use the `GitCommitRange` to create a `CommitSpecifier` and pass it to `Changelog::new` to create
+//! a changelog. Finally, we print the changelog.
 use crate::api::{rest::Paginated, jira::{JiraIssue, JiraClient}, bitbucket::{BitbucketCommit, BitbucketPullRequest, BitbucketPullRequestIssue, BitbucketClient, BitbucketPaginated}, spinnaker::{SpinnakerClient, md_environment_states_query::{Variables, MdArtifactStatusInEnvironment, MdEnvironmentStatesQueryApplicationEnvironmentsStateArtifactsVersions}}};
 
 use std::{fmt::Display, collections::{HashSet, HashMap}};
 use serde::{Deserialize, Serialize};
 use anyhow::{Context, Result};
 
+/// The `CommitSpecifier` enum is used to specify the range of commits for which the changelog
+/// should be generated. It has two variants: `Spinnaker` and `CommitRange`.
+///
+/// - `Spinnaker`: This variant uses the `SpinnakerEnvironment` struct to determine the commit range.
+///   It fetches the latest pending and current versions from a Spinnaker environment to compute the
+///   range of commits for which the changelog should be generated.
+///
+/// - `CommitRange`: This variant uses the `GitCommitRange` struct to directly specify the range of
+///   commits for which the changelog should be generated.
+///
+/// # Example
+///
+/// ```
+/// use deployment_changelog::changelog::{CommitSpecifier, SpinnakerEnvironment, GitCommitRange};
+/// use deployment_changelog::api::{bitbucket::BitbucketClient, jira::JiraClient, spinnaker::SpinnakerClient};
+///
+/// // Creating a CommitSpecifier using the Spinnaker variant
+/// let spinnaker_client = SpinnakerClient::new("https://your-spinnaker-url");
+/// let spinnaker_env = SpinnakerEnvironment {
+///     client: spinnaker_client,
+///     app_name: String::from("my-app"),
+///     env: String::from("production")
+/// };
+/// let commit_specifier_spinnaker = CommitSpecifier::Spinnaker(spinnaker_env);
+///
+/// // Creating a CommitSpecifier using the CommitRange variant
+/// let commit_range = GitCommitRange {
+///     project: String::from("my-project"),
+///     repo: String::from("my-repo"),
+///     start_commit: String::from("abcdef123456"),
+///     end_commit: String::from("ghijkl789012")
+/// };
+/// let commit_specifier_range = CommitSpecifier::CommitRange(commit_range);
+/// ```
+///
+/// In this example, we demonstrate how to create instances of `CommitSpecifier` using both the
+/// `Spinnaker` and `CommitRange` variants. We create a `SpinnakerEnvironment` struct and a
+/// `GitCommitRange` struct and use them to create `CommitSpecifier` instances.
 #[derive(Debug)]
 pub enum CommitSpecifier {
     Spinnaker(SpinnakerEnvironment),
     CommitRange(GitCommitRange)
 }
 
+/// The `SpinnakerEnvironment` struct is used to represent a Spinnaker environment for which the
+/// changelog should be generated. It contains the following fields:
+///
+/// - `client`: A `SpinnakerClient` instance used to interact with the Spinnaker API.
+/// - `app_name`: A `String` representing the name of the Spinnaker application.
+/// - `env`: A `String` representing the name of the Spinnaker environment (e.g., "production").
+///
+/// When the `CommitSpecifier::Spinnaker` variant is used, the changelog is generated based on
+/// the latest pending and current versions of the specified Spinnaker environment.
+///
+/// # Example
+///
+/// ```
+/// use deployment_changelog::changelog::{CommitSpecifier, SpinnakerEnvironment};
+/// use deployment_changelog::api::{bitbucket::BitbucketClient, jira::JiraClient, spinnaker::SpinnakerClient};
+///
+/// let spinnaker_client = SpinnakerClient::new("https://your-spinnaker-url");
+/// let spinnaker_env = SpinnakerEnvironment {
+///     client: spinnaker_client,
+///     app_name: String::from("my-app"),
+///     env: String::from("production")
+/// };
+/// let commit_specifier = CommitSpecifier::Spinnaker(spinnaker_env);
+/// ```
+///
+/// In this example, we create a `SpinnakerClient` with the Spinnaker server URL, and then create
+/// a `SpinnakerEnvironment` instance with the client, application name, and environment name.
+/// Finally, we use the `SpinnakerEnvironment` to create a `CommitSpecifier` instance with the
+/// `Spinnaker` variant.
 #[derive(Debug)]
 pub struct SpinnakerEnvironment {
     pub client: SpinnakerClient,
@@ -17,6 +122,35 @@ pub struct SpinnakerEnvironment {
     pub env: String
 }
 
+/// The `GitCommitRange` struct is used to represent a range of commits for which the
+/// changelog should be generated. It contains the following fields:
+///
+/// - `project`: A `String` representing the name of the project in the Git repository.
+/// - `repo`: A `String` representing the name of the Git repository.
+/// - `start_commit`: A `String` representing the starting commit in the range.
+/// - `end_commit`: A `String` representing the ending commit in the range.
+///
+/// When the `CommitSpecifier::CommitRange` variant is used, the changelog is generated based on
+/// the specified range of commits directly.
+///
+/// # Example
+///
+/// ```
+/// use deployment_changelog::changelog::{CommitSpecifier, GitCommitRange};
+/// use deployment_changelog::api::{bitbucket::BitbucketClient, jira::JiraClient};
+///
+/// let commit_range = GitCommitRange {
+///     project: String::from("my-project"),
+///     repo: String::from("my-repo"),
+///     start_commit: String::from("abcdef123456"),
+///     end_commit: String::from("ghijkl789012")
+/// };
+/// let commit_specifier = CommitSpecifier::CommitRange(commit_range);
+/// ```
+///
+/// In this example, we create a `GitCommitRange` instance with the project name, repository name,
+/// and starting and ending commit hashes. Then, we use the `GitCommitRange` to create a
+/// `CommitSpecifier` instance with the `CommitRange` variant.
 #[derive(Debug)]
 pub struct GitCommitRange {
     pub project: String,
@@ -25,6 +159,42 @@ pub struct GitCommitRange {
     pub end_commit: String
 }
 
+/// The `Changelog` struct represents a changelog containing information about commits,
+/// pull requests, and issues between two versions of a project. It contains the following fields:
+///
+/// - `commits`: A `Vec<BitbucketCommit>` containing the list of Bitbucket commits.
+/// - `pull_requests`: A `Vec<BitbucketPullRequest>` containing the list of Bitbucket pull requests.
+/// - `issues`: A `Vec<JiraIssue>` containing the list of Jira issues.
+///
+/// The `Changelog` struct provides methods to generate a changelog from a Spinnaker environment
+/// or a Git commit range. It also implements the `Display` trait to provide a formatted output.
+///
+/// # Example
+///
+/// ```
+/// use deployment_changelog::changelog::{Changelog, CommitSpecifier, GitCommitRange};
+/// use deployment_changelog::api::{bitbucket::BitbucketClient, jira::JiraClient};
+///
+/// let bitbucket_client = BitbucketClient::new("https://your-bitbucket-url");
+/// let jira_client = JiraClient::new("https://your-jira-url");
+///
+/// let commit_range = GitCommitRange {
+///     project: String::from("my-project"),
+///     repo: String::from("my-repo"),
+///     start_commit: String::from("abcdef123456"),
+///     end_commit: String::from("ghijkl789012")
+/// };
+///
+/// let commit_specifier = CommitSpecifier::CommitRange(commit_range);
+/// let changelog = Changelog::new(&bitbucket_client, &jira_client, &commit_specifier).await.unwrap();
+///
+/// println!("{}", changelog);
+/// ```
+///
+/// In this example, we create a `BitbucketClient` and a `JiraClient` with their respective server URLs.
+/// We also create a `GitCommitRange` instance and use it to create a `CommitSpecifier` with the
+/// `CommitRange` variant. Then, we generate a `Changelog` using the `Changelog::new` method and
+/// print the formatted output.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Changelog {
@@ -43,6 +213,40 @@ impl Display for Changelog {
 }
 
 impl Changelog {
+    /// This method creates a new `Changelog` instance using the provided `BitbucketClient`, `JiraClient`,
+    /// and `CommitSpecifier`. The changelog is generated based on the commit specifier. It can either
+    /// generate a changelog from a Spinnaker environment or a Git commit range.
+    ///
+    /// ### Example
+    ///
+    /// ```rust
+    /// use deployment_changelog::changelog::{Changelog, CommitSpecifier, GitCommitRange};
+    /// use deployment_changelog::api::{bitbucket::BitbucketClient, jira::JiraClient};
+    ///
+    /// // Create a BitbucketClient and JiraClient with their respective server URLs.
+    /// let bitbucket_client = BitbucketClient::new("https://your-bitbucket-url");
+    /// let jira_client = JiraClient::new("https://your-jira-url");
+    ///
+    /// // Define the Git commit range for the changelog.
+    /// let commit_range = GitCommitRange {
+    ///     project: String::from("my-project"),
+    ///     repo: String::from("my-repo"),
+    ///     start_commit: String::from("abcdef123456"),
+    ///     end_commit: String::from("ghijkl789012")
+    /// };
+    ///
+    /// // Create a CommitSpecifier using the Git commit range.
+    /// let commit_specifier = CommitSpecifier::CommitRange(commit_range);
+    ///
+    /// // Generate a Changelog using the new method and print the formatted output.
+    /// let changelog = Changelog::new(&bitbucket_client, &jira_client, &commit_specifier).await.unwrap();
+    /// println!("{}", changelog);
+    /// ```
+    ///
+    /// In this example, we create a `BitbucketClient` and a `JiraClient` with their respective server URLs.
+    /// We define a `GitCommitRange` instance and use it to create a `CommitSpecifier` with the
+    /// `CommitRange` variant. Then, we generate a `Changelog` using the `Changelog::new` method and
+    /// print the formatted output.
     pub async fn new(
         bitbucket_client: &BitbucketClient,
         jira_client: &JiraClient,
@@ -62,6 +266,40 @@ impl Changelog {
         }
     }
 
+    /// This method creates a `Changelog` instance for a Spinnaker environment. It fetches the
+    /// environment's latest pending and current versions and generates a changelog based on the
+    /// commit range between these two versions.
+    ///
+    /// ### Example
+    ///
+    /// ```rust
+    /// use deployment_changelog::changelog::{Changelog, CommitSpecifier, SpinnakerEnvironment};
+    /// use deployment_changelog::api::{bitbucket::BitbucketClient, jira::JiraClient, spinnaker::SpinnakerClient};
+    ///
+    /// // Create a BitbucketClient, JiraClient, and SpinnakerClient with their respective server URLs.
+    /// let bitbucket_client = BitbucketClient::new("https://your-bitbucket-url");
+    /// let jira_client = JiraClient::new("https://your-jira-url");
+    /// let spinnaker_client = SpinnakerClient::new("https://your-spinnaker-url");
+    ///
+    /// // Define the Spinnaker environment for the changelog.
+    /// let spinnaker_env = SpinnakerEnvironment {
+    ///     client: spinnaker_client,
+    ///     app_name: String::from("my-app"),
+    ///     env: String::from("my-environment")
+    /// };
+    ///
+    /// // Create a CommitSpecifier using the Spinnaker environment.
+    /// let commit_specifier = CommitSpecifier::Spinnaker(spinnaker_env);
+    ///
+    /// // Generate a Changelog using the get_changelog_from_spinnaker method and print the formatted output.
+    /// let changelog = Changelog::get_changelog_from_spinnaker(&bitbucket_client, &jira_client, &spinnaker_env).await.unwrap();
+    /// println!("{}", changelog);
+    /// ```
+    ///
+    /// In this example, we create a `BitbucketClient`, a `JiraClient`, and a `SpinnakerClient` with their respective server URLs.
+    /// We define a `SpinnakerEnvironment` instance and use it to create a `CommitSpecifier` with the
+    /// `Spinnaker` variant. Then, we generate a `Changelog` using the `Changelog::get_changelog_from_spinnaker` method and
+    /// print the formatted output.
     pub async fn get_changelog_from_spinnaker(
         bitbucket_client: &BitbucketClient,
         jira_client: &JiraClient,
@@ -174,6 +412,36 @@ impl Changelog {
         ).await
     }
 
+    /// This method creates a `Changelog` instance for a specified Git commit range. It fetches
+    /// the commits, pull requests, and issues in the range and generates a changelog based on
+    /// the collected data.
+    ///
+    /// ### Example
+    ///
+    /// ```rust
+    /// use deployment_changelog::changelog::{Changelog, GitCommitRange};
+    /// use deployment_changelog::api::{bitbucket::BitbucketClient, jira::JiraClient};
+    ///
+    /// // Create a BitbucketClient and JiraClient with their respective server URLs.
+    /// let bitbucket_client = BitbucketClient::new("https://your-bitbucket-url");
+    /// let jira_client = JiraClient::new("https://your-jira-url");
+    ///
+    /// // Define the Git commit range for the changelog.
+    /// let commit_range = GitCommitRange {
+    ///     project: String::from("my-project"),
+    ///     repo: String::from("my-repo"),
+    ///     start_commit: String::from("abcdef123456"),
+    ///     end_commit: String::from("ghijkl789012")
+    /// };
+    ///
+    /// // Generate a Changelog using the get_changelog_from_range method and print the formatted output.
+    /// let changelog = Changelog::get_changelog_from_range(&bitbucket_client, &jira_client, &commit_range).await.unwrap();
+    /// println!("{}", changelog);
+    /// ```
+    ///
+    /// In this example, we create a `BitbucketClient` and a `JiraClient` with their respective server URLs.
+    /// We define a `GitCommitRange` instance and use it to generate a `Changelog` with the
+    /// `Changelog::get_changelog_from_range` method. Then, we print the formatted output.
     pub async fn get_changelog_from_range(
         bitbucket_client: &BitbucketClient,
         jira_client: &JiraClient,
