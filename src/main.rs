@@ -79,10 +79,6 @@ async fn print_changelog(args: &Args) -> Result<()> {
     let bitbucket_client = BitbucketClient::new(&args.bitbucket_url)?;
     let jira_client = JiraClient::new(&args.jira_url)?;
 
-    // let issue_key = "CASSANDRA-18339";
-    // let issue = jira_client.get_issue(issue_key).await;
-    // println!("Issue:\n{}\n", issue);
-    
     let commit_specifier = CommitSpecifier::try_from(&args.commit_specifier)?;
 
     let changelog: Changelog = Changelog::new(
