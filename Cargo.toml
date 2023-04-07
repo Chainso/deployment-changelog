@@ -1,7 +1,12 @@
 [package]
 name = "deployment-changelog"
 version = "0.1.0"
+authors = ["Chainso <chanzobryan@gmail.com>"]
 edition = "2021"
+license-file = "LICENSE.txt"
+repository = "https://github.com/Chainso/deployment-changelog"
+readme = "README.md"
+keywords = ["git", "bitbucket", "stash", "jira", "spinnaker", "commit", "issue", "changelog", "release", "notes"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
