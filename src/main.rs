@@ -28,7 +28,7 @@ enum CommitSpecifierSubcommand {
 #[derive(Parser, Debug)]
 struct SpinnakerArgs {
     #[clap(long, short = 's', about, long_help = "The URL to your Spinnaker server", env = "SPINNAKER_URL")]
-    url: String,
+    spinnaker_url: String,
     app_name: String,
     env: String
 }
@@ -47,7 +47,7 @@ impl TryFrom<&CommitSpecifierSubcommand> for CommitSpecifier {
     fn try_from(commit_specifier_subcommand: &CommitSpecifierSubcommand) -> Result<Self> {
         match commit_specifier_subcommand {
             CommitSpecifierSubcommand::Spinnaker(spinnaker_args) => Ok(CommitSpecifier::Spinnaker(SpinnakerEnvironment {
-                client: SpinnakerClient::new(&spinnaker_args.url)?,
+                client: SpinnakerClient::new(&spinnaker_args.spinnaker_url)?,
                 app_name: spinnaker_args.app_name.clone(),
                 env: spinnaker_args.env.clone()
             })),
