@@ -1,4 +1,3 @@
-
 use deployment_changelog::{changelog::{Changelog, CommitSpecifier, SpinnakerEnvironment, GitCommitRange}, api::{jira::JiraClient, bitbucket::BitbucketClient, spinnaker::SpinnakerClient}};
 use anyhow::Result;
 use clap::Parser;
@@ -10,10 +9,10 @@ struct Args {
     #[clap(subcommand)]
     commit_specifier: CommitSpecifierSubcommand,
 
-    #[clap(long, short = 'b', about, long_help = "The URL to your Bitbucket server", env = "BITBUCKET_URL")]
+    #[clap(long, short = 'b', help = "The URL to your Bitbucket server", env = "BITBUCKET_URL")]
     bitbucket_url: String,
 
-    #[clap(long, short = 'j', about, long_help = "The URL to your JIRA server", env = "JIRA_URL")]
+    #[clap(long, short = 'j', help = "The URL to your JIRA server", env = "JIRA_URL")]
     jira_url: String,
 
     #[clap(flatten)]
@@ -28,17 +27,28 @@ enum CommitSpecifierSubcommand {
 
 #[derive(Parser, Debug)]
 struct SpinnakerArgs {
-    #[clap(long, short = 's', about, long_help = "The URL to your Spinnaker server", env = "SPINNAKER_URL")]
+    #[clap(long, short = 's', help = "The URL to your Spinnaker server", env = "SPINNAKER_URL")]
     spinnaker_url: String,
+
+    #[clap(help = "The Spinnaker app name")]
     app_name: String,
+
+    #[clap(help = "The Spinnaker environment")]
     env: String
 }
 
 #[derive(Parser, Debug)]
 struct CommitRangeArgs {
+    #[clap(help = "The Bitbucket project")]
     project: String,
+
+    #[clap(help = "The Bitbucket repository")]
     repo: String,
+
+    #[clap(help = "The start commit to get the changelog for, this commit should be more recent than the end commit")]
     start_commit: String,
+
+    #[clap(help = "The end commit to get the changelog for, this commit should be older than the start commit")]
     end_commit: String
 }
 

@@ -36,7 +36,8 @@
 //!
 //! We use the `GitCommitRange` to create a `CommitSpecifier` and pass it to `Changelog::new` to create
 //! a changelog. Finally, we print the changelog.
-use crate::api::{rest::Paginated, jira::{JiraIssue, JiraClient}, bitbucket::{BitbucketCommit, BitbucketPullRequest, BitbucketPullRequestIssue, BitbucketClient, BitbucketPaginated}, spinnaker::{SpinnakerClient, md_environment_states_query::{Variables, MdArtifactStatusInEnvironment, MdEnvironmentStatesQueryApplicationEnvironmentsStateArtifactsVersions}}};
+use crate::api::{rest::Paginated, jira::{JiraIssue, JiraClient}, bitbucket::{BitbucketCommit, BitbucketPullRequest, BitbucketPullRequestIssue, BitbucketClient, BitbucketPaginated}};
+use crate::api::spinnaker::{SpinnakerClient, md_environment_states_query::{Variables, MdArtifactStatusInEnvironment, MdEnvironmentStatesQueryApplicationEnvironmentsStateArtifactsVersions}};
 
 use std::{fmt::Display, collections::{HashSet, HashMap}};
 use serde::{Deserialize, Serialize};

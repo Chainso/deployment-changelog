@@ -28,9 +28,5 @@ serde_json = "1.0.94"
 serde_with = { version = "2.3.1", features = ["chrono"] }
 shadow-rs = "0.21.0"
 tokio = { version = "1.26.0", features = ["macros", "rt-multi-thread"] }
-
-graphql_client = { version = "0.12.0", features = ["reqwest"], optional = true }
-
-[features]
-spinnaker = ["dep:graphql_client"]
+graphql_client = { version = "0.12.0", features = ["reqwest"] }
 

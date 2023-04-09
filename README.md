@@ -130,6 +130,35 @@ client_builder.client_builder = client_builder.client_builder
 let bitbucket_client = BitbucketClient::from_client(client.build()?);
 ```
 
+## CLI Usage
+
+The `deployment_changelog` crate also includes a simple command-line interface (CLI) for generating deployment changelogs from public Bitbucket and JIRA instances. To use the CLI, you can clone the repository.
+
+This CLI tool accepts arguments for specifying the Bitbucket and JIRA servers, as well as commit specifier details like Spinnaker environment or Git commit range. You can build and run the CLI tool with `cargo run`, providing the required arguments.
+
+Here's an example of how to use the CLI tool:
+
+### Spinnaker specifier
+
+```sh
+export BITBUCKET_URL=https://your-bitbucket-url.com/
+export JIRA_URL=https://your-jira-url.com/
+export SPINNAKER_URL=https://your-spinnaker-url.com/
+
+cargo run --all-features spinnaker important_service prod
+```
+
+### Git commit range specifier
+
+```sh
+export BITBUCKET_URL=https://your-bitbucket-url.com/
+export JIRA_URL=https://your-jira-url.com/
+
+cargo run commit-range CATS clowder abc123def4567890a1b2c3d4e5f67890abcdef01 5f56c43386103d10c1cbb415d6f3132da16948a8
+```
+
+The CLI will output the changelog in the console.
+
 # Version Compatibility
 
 The deployment_changelog crate requires Rust 1.53.0 or later.
