@@ -7,7 +7,7 @@ description = "A Rust library for generating changelogs based on deployments or 
 readme = "README.md"
 repository = "https://github.com/Chainso/deployment-changelog"
 license-file = "LICENSE.txt"
-keywords = ["deploy", "changelog", "release-notes", "bitbucket", "stash", "jira", "spinnaker"]
+keywords = ["changelog", "release-notes", "bitbucket", "jira", "spinnaker"]
 categories = ["command-line-utilities", "development-tools"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
