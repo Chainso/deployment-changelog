@@ -1,6 +1,6 @@
 [package]
 name = "deployment-changelog"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Chainso <chanzobryan@gmail.com>"]
 edition = "2021"
 description = "A Rust library for generating changelogs based on deployments or commit ranges in Git repositories. It integrates with Bitbucket, Jira, and Spinnaker to retrieve commit, pull request, and issue information for the specified range or Spinnaker environment. The crate provides a structured `Changelog` object with a human-readable display representation."
